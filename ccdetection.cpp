@@ -58,5 +58,6 @@ int main(int argc, char** argv )
     //}
     cout<<descriptorsValues.size()<<endl;
     cout<<locations.size()<<endl;
+    test
     return 0;
 }
