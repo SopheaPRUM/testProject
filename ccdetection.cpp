@@ -1,5 +1,10 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
+#include <iostream>
+#include <fstream>
+#include <algorithm>
+#include <iterator>
+#include "Tools.hpp"
 
 using namespace cv;
 using namespace std;
@@ -12,7 +17,7 @@ Mat imagProcessing(const Mat &inputImage){
     //size normalize
 
     float fx = 100.0/img_gray.cols;
-    float fy = 50.0/img_gray.rows;
+    float fy = 100.0/img_gray.rows;
     Mat output;
     cv::resize(img_gray, output, cv::Size(), fx, fy);
     return output;
@@ -34,8 +39,45 @@ Mat imagProcessing(string inputImageFN){
 
 void getHOGdescriptors(const Mat &inputImage, std::vector<float> &descriptorsValues, std::vector<Point> &locations){
     //extract feature
-    HOGDescriptor d( Size(32,16), Size(8,8), Size(4,4), Size(4,4), 9);
+    HOGDescriptor d( Size(32*2,16*2), Size(8*2,8*2), Size(4*2,4*2), Size(4*2,4*2), 9);
     d.compute( inputImage, descriptorsValues, Size(0,0), Size(0,0), locations);
+}
+
+
+void createWekaHeader(int featNumber){
+    ofstream myfile;
+    myfile.open ("weka.arff",ios::trunc);
+    myfile << "@RELATION cervicalCancer"<<endl;
+
+    for(int i=0; i<featNumber; i++){
+        stringstream ss;
+        ss <<i+1;
+        myfile<<" @ATTRIBUTE Feat_"<<ss.str()<<" NUMERIC"<<endl;
+    }
+    
+
+    myfile<<"@ATTRIBUTE class {normal, abnormal}"<<endl;
+    myfile<<"@DATA"<<endl;
+    myfile.close();
+}
+
+
+void addWekaFeatures(std::vector<float> &v, string className){
+    ofstream myfile;
+    myfile.open ("weka.arff",ios::app);
+
+    string featureStr;
+    for(int i=0; i<v.size(); i++){
+
+        stringstream ss;
+        ss <<v[i];
+        featureStr = featureStr +","+ ss.str();
+        
+    }
+    featureStr = featureStr+","+className;
+    myfile<<featureStr<<endl;
+
+    myfile.close();
 }
 
 int main(int argc, char** argv )
@@ -45,19 +87,39 @@ int main(int argc, char** argv )
         printf("usage: DisplayImage.out <Image_Path>\n");
         return -1;
     }
+    
+    //create weka header
+    createWekaHeader(34020);
 
-    Mat inputImage = imagProcessing(argv[1]);
+    string line;
+    ifstream myfile(argv[1]);
+    if (myfile.is_open())
+    {
+        while ( getline (myfile,line) )
+        {
 
-    vector< float> descriptorsValues;
-    vector< Point> locations;
+            std::vector<string> fntmp = Tools::stringToStringVector(line, ' ');
+            string gt = fntmp[0];
 
-    getHOGdescriptors(inputImage, descriptorsValues, locations);
 
-    //for(int i=0; i<descriptorsValues.size(); i++){
-    //    cout<<descriptorsValues.at(i)<<", ";
-    //}
-    cout<<descriptorsValues.size()<<endl;
-    cout<<locations.size()<<endl;
-    test
+            Mat inputImage = imagProcessing(fntmp[1]);
+            cout<<fntmp[1]<<endl;
+
+            //HOG feature extraction
+            std::vector<float> descriptorsValues;
+            std::vector<Point> locations;
+
+            getHOGdescriptors(inputImage, descriptorsValues, locations);
+            //cout<<descriptorsValues.size()<<endl;
+
+            addWekaFeatures(descriptorsValues, gt);
+
+        }
+
+        myfile.close();
+    }
+
+    else cout << "Unable to open file"; 
+
     return 0;
 }
